@@ -69,6 +69,11 @@ flags.DEFINE_boolean('record_summaries', True,
                       ' or the training pipeline. This does not impact the'
                       ' summaries of the loss values which are always'
                       ' recorded.'))
+flags.DEFINE_bool('early_stopping', False, 'Whether to stop the training when a certain number of steps (patience)'
+                                           'is reached without loss improvements.')
+flags.DEFINE_integer('patience', 2000, 'When "early stopping" is enabled, how many steps without improvements'
+                                       'are allowed before the training is stopped.')
+
 
 FLAGS = flags.FLAGS
 
@@ -109,7 +114,9 @@ def main(unused_argv):
           train_steps=FLAGS.num_train_steps,
           use_tpu=FLAGS.use_tpu,
           checkpoint_every_n=FLAGS.checkpoint_every_n,
-          record_summaries=FLAGS.record_summaries)
+          record_summaries=FLAGS.record_summaries,
+          early_stopping=FLAGS.early_stopping,
+          patience=FLAGS.patience)
 
 if __name__ == '__main__':
   tf.compat.v1.app.run()

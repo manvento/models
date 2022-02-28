@@ -452,6 +452,8 @@ def train_loop(
     record_summaries=True,
     performance_summary_exporter=None,
     num_steps_per_iteration=NUM_STEPS_PER_ITERATION,
+    early_stopping=False,
+    patience=2000,
     **kwargs):
   """Trains a model using eager + functions.
 
@@ -617,6 +619,11 @@ def train_loop(
         manager = tf.compat.v2.train.CheckpointManager(
             ckpt, manager_dir, max_to_keep=checkpoint_max_to_keep)
 
+        if early_stopping:
+            manager_dir_best = get_filepath(strategy, model_dir + '_best')
+            manager_best = tf.compat.v2.train.CheckpointManager(
+                ckpt, manager_dir_best, max_to_keep=1)
+
         # We use the following instead of manager.latest_checkpoint because
         # manager_dir does not point to the model directory when we are running
         # in a worker.
@@ -678,6 +685,10 @@ def train_loop(
         checkpointed_step = int(global_step.value())
         logged_step = global_step.value()
 
+        if early_stopping:
+            best_step = int(global_step.value())
+            best_loss = float('inf')
+
         last_step_time = time.time()
         for _ in range(global_step.value(), train_steps,
                        num_steps_per_iteration):
@@ -712,6 +723,16 @@ def train_loop(
               checkpoint_every_n):
             manager.save()
             checkpointed_step = int(global_step.value())
+
+          if early_stopping:
+              if best_loss > losses_dict['Loss/total_loss'].numpy():
+                  manager_best.save()
+                  best_loss = losses_dict['Loss/total_loss'].numpy()
+                  best_step = int(global_step.value())
+              else:
+                  if int(global_step.value()) - best_step > patience:
+                      break
+
 
   # Remove the checkpoint directories of the non-chief workers that
   # MultiWorkerMirroredStrategy forces us to save during sync distributed
